@@ -313,8 +313,8 @@ cdef class Loop:
             # as we ensure that the current thread is the main thread.
             # Still, if something goes horribly wrong we want to clean up
             # the socket pair.
-            self._ssock.close()
-            self._csock.close()
+            _try_socket_close(self._ssock)
+            _try_socket_close(self._csock)
             self._ssock = None
             self._csock = None
             raise
@@ -347,8 +347,8 @@ cdef class Loop:
         _set_signal_wakeup_fd(self._old_signal_wakeup_id)
 
         self._remove_reader(self._ssock)
-        self._ssock.close()
-        self._csock.close()
+        _try_socket_close(self._ssock)
+        _try_socket_close(self._csock)
         self._ssock = None
         self._csock = None
 
@@ -3415,6 +3415,16 @@ cdef _set_signal_wakeup_fd(fd):
         return signal_set_wakeup_fd(fd, warn_on_full_buffer=False)
     else:
         return signal_set_wakeup_fd(fd)
+
+
+cdef _try_socket_close(sock):
+    try:
+        sock.close()
+    except OSError as err:
+        if err.errno == 9:
+           # this fd is already closed
+           return
+        raise err
 
 
 # Helpers for tests
